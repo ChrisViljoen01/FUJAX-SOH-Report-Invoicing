@@ -657,7 +657,7 @@ dialog::backdrop { background: rgba(4, 18, 34, .72); backdrop-filter: blur(4px);
           </div>
           <div class="filtered-position"><div><span>VISIBLE ROWS</span><strong id="visibleLoads">—</strong></div><div><span>VISIBLE BILLED TONNES</span><strong id="visibleTonnage">—</strong></div><div><span>VISIBLE EX VAT</span><strong id="visibleCharge">—</strong></div><p id="resultsLabel">—</p></div>
           <div class="table-card load-table-card">
-            <div class="table-scroll"><table class="load-table"><thead><tr><th>Invoice</th><th>Load</th><th>Load date</th><th>Order</th><th>Mine WB ticket</th><th>Terminal WB ticket</th><th>Billing basis</th><th class="num">Billed t</th><th class="num highlighted-header">Rate R/t</th><th class="num">Allocated ex VAT</th></tr></thead><tbody id="loadTableBody"></tbody></table></div>
+            <div class="table-scroll"><table class="load-table"><thead><tr><th>Invoice</th><th>Load</th><th>Load date</th><th>Order</th><th>Mine WB ticket</th><th>Terminal WB ticket</th><th>Billing basis</th><th>Transport type</th><th class="num">Billed t</th><th class="num highlighted-header">Rate R/t</th><th class="num">Allocated ex VAT</th></tr></thead><tbody id="loadTableBody"></tbody></table></div>
             <div class="pagination"><button id="prevPage" type="button">Previous</button><span id="pageLabel">—</span><button id="nextPage" type="button">Next</button></div>
           </div>
         </section>
@@ -736,6 +736,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   const fmtRate = (value) => `R ${number.format(Math.abs(clean(value)))}`;
   const fmtT = (value) => number.format(clean(value));
   const fmtT4 = (value) => number4.format(clean(value));
+  const loadType = (load) => String(load.billingBasis || "").trim().toLowerCase() === "weight excl panel set" ? "Tautliner" : "Tipper";
   const statusBadge = (value) => `<span class="status-badge status-confirmed">${escapeHtml(value)}</span>`;
   const unique = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
   const sum = (items, getter) => items.reduce((total, item) => total + Number(getter(item) || 0), 0);
@@ -879,7 +880,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function filterLoads() {
     const term = loadState.search.trim().toLowerCase();
     return data.loads.filter((load) => {
-      const haystack = [load.documentDisplay, load.loadNo, load.order, load.bulkOrder, load.route, load.mineTicket, load.terminalTicket, load.vehicle].join(" ").toLowerCase();
+      const haystack = [load.documentDisplay, load.loadNo, load.order, load.bulkOrder, load.route, load.mineTicket, load.terminalTicket, load.vehicle, load.billingBasis, loadType(load)].join(" ").toLowerCase();
       return (!term || haystack.includes(term)) && (!loadState.invoice || load.documentDisplay === loadState.invoice) && (!loadState.order || load.order === loadState.order);
     });
   }
@@ -888,7 +889,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const { pageRows, start, end, totalPages } = paginate(currentFilteredLoads, loadState);
     $("loadTableBody").innerHTML = pageRows.length ? pageRows.map((load) => `
       <tr><td><strong>${escapeHtml(load.documentDisplay)}</strong></td><td>${whole.format(load.loadNo)}</td><td>${fmtDate(load.loadDate)}</td><td>${escapeHtml(load.order)}</td><td>${escapeHtml(load.mineTicket || "—")}</td><td>${escapeHtml(load.terminalTicket || "—")}</td>
-      <td>${escapeHtml(load.billingBasis)}</td><td class="num"><strong>${fmtT(load.billedT)}</strong></td><td class="num cell-rate">${fmtRate(load.rate)}</td><td class="num">${fmtMoney(load.chargeExVat)}</td></tr>`).join("") : `<tr><td colspan="10">No loads match the selected filters.</td></tr>`;
+      <td>${escapeHtml(load.billingBasis)}</td><td><strong>${loadType(load)}</strong></td><td class="num"><strong>${fmtT(load.billedT)}</strong></td><td class="num cell-rate">${fmtRate(load.rate)}</td><td class="num">${fmtMoney(load.chargeExVat)}</td></tr>`).join("") : `<tr><td colspan="11">No loads match the selected filters.</td></tr>`;
     $("visibleLoads").textContent = whole.format(currentFilteredLoads.length);
     $("visibleTonnage").textContent = `${fmtT(sum(currentFilteredLoads, (load) => load.billedT))} t`;
     $("visibleCharge").textContent = fmtMoney(sum(currentFilteredLoads, (load) => load.chargeExVat));
@@ -910,7 +911,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     orders: { sheet: "Order summary", file: "order_summary", allRows: () => data.orders, map: (item) => ({ "Normalized order": item.label, Invoices: item.invoices, Credits: item.credits, "Gross t": item.grossTonnage, "Credit t": item.creditTonnage, "Net t": item.netTonnage, "Gross ex VAT": item.grossExVat, "Credits ex VAT": item.creditExVat, "Net ex VAT": item.netExVat, "Net VAT": item.netVat, "Net total": item.netTotal }) },
     routes: { sheet: "Route summary", file: "route_summary", allRows: () => data.routes, map: (item) => ({ Route: item.label, Invoices: item.invoices, Credits: item.credits, "Gross t": item.grossTonnage, "Credit t": item.creditTonnage, "Net t": item.netTonnage, "Gross ex VAT": item.grossExVat, "Credits ex VAT": item.creditExVat, "Net ex VAT": item.netExVat, "Net VAT": item.netVat, "Net total": item.netTotal }) },
     documents: { sheet: "Document register", file: "document_register", allRows: () => documentRows, filteredRows: filterDocuments, map: (item) => ({ Type: item.type, Document: item.documentDisplay, Date: item.date, Order: item.normalizedOrder, Route: item.route, "Signed tonnage t": item.signedTonnage, "Rate R/t": item.rate, "Ex VAT": item.exVat, VAT: item.vat, Total: item.total, "Original invoice": item.originalInvoice || "" }) },
-    loads: { sheet: "Load detail", file: "load_detail", allRows: () => data.loads, filteredRows: filterLoads, map: (load) => ({ Invoice: load.documentDisplay, "Invoice date": load.invoiceDate, Load: load.loadNo, "Load date": load.loadDate, "Offload date": load.offloadDate, Order: load.order, "Bulk order": load.bulkOrder, Route: load.route, Vehicle: load.vehicle, "Mine WB ticket": load.mineTicket, "Terminal WB ticket": load.terminalTicket, "Dispatch t": load.dispatchT, "Received t": load.receivedT, "Billing basis": load.billingBasis, "Billed t": load.billedT, "Rate R/t": load.rate, "Allocated ex VAT": load.chargeExVat }) },
+    loads: { sheet: "Load detail", file: "load_detail", allRows: () => data.loads, filteredRows: filterLoads, map: (load) => ({ Invoice: load.documentDisplay, "Invoice date": load.invoiceDate, Load: load.loadNo, "Load date": load.loadDate, "Offload date": load.offloadDate, Order: load.order, "Bulk order": load.bulkOrder, Route: load.route, Vehicle: load.vehicle, "Mine WB ticket": load.mineTicket, "Terminal WB ticket": load.terminalTicket, "Dispatch t": load.dispatchT, "Received t": load.receivedT, "Billing basis": load.billingBasis, "Transport type": loadType(load), "Billed t": load.billedT, "Rate R/t": load.rate, "Allocated ex VAT": load.chargeExVat }) },
   };
   const filteredDatasets = new Set(["documents", "loads"]);
   const updateExportScopeHelp = () => {
